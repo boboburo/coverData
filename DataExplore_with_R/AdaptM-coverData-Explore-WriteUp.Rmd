@@ -1,0 +1,466 @@
+---
+title: "Adaptive Mobile: coverType Data Set - Exploratory Analysis "
+author: "Brian Carter"
+date: "24 March, 2015"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    fig_width: 6
+    fig_height: 4
+    fig_caption: false
+---
+
+```{r setup, eval=TRUE,echo=FALSE}
+
+setwd("C:\\Users\\IBM_ADMIN\\Desktop\\github\\adaptm\\DataExplore_with_R")
+
+#Set some global options for r chunks. Want R chunk to evaluate, but not included for client facing document. 
+#knitr::opts_chunk$set(cache=TRUE,cache.lazy = TRUE,
+#												fig.height=4,fig.width=6,fig.align='center',fig.path='figure/',
+#											warning=FALSE,message=FALSE,error=FALSE,echo=FALSE
+#										)  ##background doesn't work
+#
+
+knitr::opts_chunk$set(cache=FALSE,cache.lazy = FALSE,
+											fig.path='figure/',
+											warning=FALSE,message=FALSE,error=FALSE,echo=FALSE
+										)  ##background doesn't work
+
+
+#Caching gives some funny results but it can result in faster loading times, when writing up the document. This is to do with the := assignment in data.table. Knitr doesn't recognise, therefore always use <-
+
+```
+
+```{r,cache=FALSE}
+
+##Libraries required
+#Data work 
+require(data.table) #Working with large files
+require(xlsx)       #Loading and saving .xlsx files 
+require(plyr)   #Always load in this order plyr, dpply, lubridate - dpplyr overrides some of methods in plyr. 
+require(dplyr) #Use require as it will give an error message if the package doesn't exist
+require(lubridate) #used for working with data information. 
+require(reshape2)  #used for melting 
+require(ggplot2)
+#install.packages("ggthemes")
+require(ggthemes)
+require(scales)
+require(GGally)
+#require(cowplot)
+require(gridExtra)
+
+#Formating and printing 
+#install.packages("devtools")
+#devtools::install_github("adletaw/captioner")   #Nice library for numbering and captioning tables in conjunction with knitr and pandoc
+require(pander)   	#for creating nice output tables.
+require(captioner)
+
+#Set up the figure and table numbering
+fig_nums<-captioner(prefix = "Figure")
+tab_nums<-captioner(prefix = "Table")
+
+#Using pryr abbreviate how to call fig_nums function 
+require(pryr)
+citefig<-pryr::partial(fig_nums,display="cite")
+citetab<-pryr::partial(tab_nums,display="cite")
+
+#Turn off caption.prefix as allow captioner to handle this. 
+panderOptions('table.caption.prefix', '')
+panderOptions('big.mark', ",")
+panderOptions('keep.trailing.zeros', TRUE)
+panderOptions('keep.line.breaks',TRUE)
+panderOptions('table.emphasize.rownames',TRUE)
+
+
+#Create theme for ggplots
+theme_adMobile <- function(){
+     theme(
+      axis.text.x=element_text(angle=30,hjust=1,size=8),
+      axis.text.y=element_text(size=8),
+      axis.title.x=element_text(size=10),
+      axis.title.y=element_text(size=10),
+      panel.background = element_blank()
+      )
+}
+```
+
+# Excutive Summary
+
+
+NOTCOMPLETE 
+
+This document present an exploration of the data contained [Forest CoverType dataset, College of Natural Resources, Colorado State University](https://archive.ics.uci.edu/ml/datasets/Covertype). An introduction to the information contained in the dataset is presented. The original dataset is described and additional metadata is added for the purposes of more intuitive understanding of the data. 
+
+The features of the dataset are analyised. This is performed in the R language. Through examine the data a number of research questions are presented to be answered for the purposes of. EXPAND HERE. 
+
+The research questions are answered in Python. 
+
+
+# Introduction
+
+```{r readdata,cache=FALSE,results='hide'}
+##File for the data file. 
+theFile="C:\\Users\\IBM_ADMIN\\Desktop\\OneDrive\\PublicData\\AM\\v1\\covtype.data"
+
+#Read in the file, try to use the syntax as applied here to keep track of what packages do what. 
+coverData<-data.table::fread(theFile,header=FALSE,na.strings=c(""))
+```
+
+The dataset in its original form contains `r nrow(coverData)` rows across `r ncol(coverData)` columns. The dataset doesn't contain column headers. These are contained in the meta data file **covtype.info** file. These are added to the data. (An excel file with the meta data was created)
+
+```{r colheads,cache=FALSE,results='hide',include=FALSE}
+#Add the column headers from created Excel file
+require(xlsx)
+theFile="C:\\Users\\IBM_ADMIN\\Desktop\\github\\adaptm\\metadata.xlsx"
+colNames<-data.table(read.xlsx(theFile, sheetName = "colNames"))
+coverData<-setnames(coverData, as.character(colNames[,dbName]) )
+```
+
+XXXXDelete Kaggle Names in metdata.xlsxXXXX
+XXXXSave with column names?XXXX
+
+```{r checkmutual,cache=FALSE,results='hide',include=FALSE}
+#Check for mutually exclusive columns 
+coverData<-coverData[, testWA := rowSums(.SD), .SDcols = 11:14]
+coverData<-coverData[,testST := rowSums(.SD), .SDcols = 15:54]
+
+coverData[testWA>1,]  #zero returned
+coverData[testST>1,]  #zero returned
+sum(coverData$testWA)==nrow(coverData)  #True
+sum(coverData$testST)==nrow(coverData)  #True
+
+#Drop the colums
+coverData<-coverData[,testWA := NULL]
+coverData<-coverData[,testST := NULL]
+```
+
+
+Columns 1-10 are quantiative data. Columns 11-14 are a binary resentation of the four possible types of **Wilderness_Area** with a 1 representing the presence of that wilderness type and 0 otherwise. These columns are mutually exclusive, in that, for each row only only of the four columns can contain a 1. For the purpose of exploratory analysis the four columns are reduced to their **original** representation of 1 column. 
+
+Similarly columns 15-54 are a binary representation of the 40 possible **Soil_Types**. For the purposes of exploratory analysis, these 40 columns are reduced to their original state with one column REWRITE. 
+
+```{r reducebinary,cache=FALSE,results='hide',include=FALSE}
+#Reduce the two binary variable to original state with variables and encode the coverType variable with original labels. 
+
+#Recode coverType with character labels for exploratory analysis. 
+metaData <- data.table(read.xlsx(theFile,sheetName = "targetName"))
+
+setkeyv(coverData,"coverType")
+setkeyv(metaData,"value")
+coverData <- coverData[metaData,coverType2:=i.newLabel]
+coverData <- coverData[,coverType:=NULL]
+setnames(coverData,"coverType2","coverType")
+
+#Read in the labels for Wilderness Area and use for loop to update the data.table
+metaData <-data.table(read.xlsx(theFile, sheetName = "wildernessArea"))
+
+for(i in 1:nrow(metaData)) {
+   refColumn<-as.character(metaData[i,dbName])
+   refValue<-as.character(metaData[i,newLabel])
+   coverData<-coverData[get(refColumn)==1,wildernessArea:=refValue]
+}
+
+#Read in the labels for Wilderness Area and use for loop to update the data.table
+metaData <-data.table(read.xlsx(theFile, sheetName = "soilType"))
+
+for(i in 1:nrow(metaData)) {
+   refColumn<-as.character(metaData[i,dbName])
+   refValue<-as.character(metaData[i,newLabel])
+   coverData<-coverData[get(refColumn)==1,soilType:=refValue]
+}
+
+#remove the binary columns
+coverData <- coverData[ , colnames(coverData[,11:54,with=FALSE]):=NULL]
+
+```
+
+After reducing the binary columns there are ` r ncol(coverData)` columns in the dataset. In the **covtype.info** file there is extra meta data associated with the **soilType** column that is not in the original dataset. Each **soilType** has an unique associated 4-digit *ELU.Code*. The first digit of the *ELU.Code* represents its' *Climatic Zone* and the second digit its' *Geological Zone*. This extra information is introduced for exploratory analysis. 
+
+```{r targetlabel,cache=FALSE,results='hide',include=FALSE}
+#Add some additional information contained about soil type. 
+
+setkeyv(coverData,"soilType")
+setkeyv(metaData,"newLabel")
+
+coverData<-coverData[metaData,climaticZone :=i.climatic.zone]
+coverData<-coverData[metaData,geologicZone :=i.geologic.zones]
+
+#reorder the columns
+colOrder<-c("Elevation","Aspect","Slope","HD.Hydro","VD.Hydro","HD.Road","HD.Fire","HS.9am","HS.noon","HS.3pm","wildernessArea","soilType","climaticZone","geologicZone","coverType")  
+
+setcolorder(coverData, colOrder)
+
+#Remove some variables
+rm(i,colOrder,refColumn,refValue,metaData,theFile,colNames)
+```
+
+The final column represents the **coverType** with seven possible values. **coverType** has been the main predictive target in much analysis concerning this dataset. The lables for this column are used during exploratory analysis. 
+
+## Data Summary
+
+Having reduced the binary columns representations of  **Wilderness_Area, Soil_Type** to their original form and added two additional columns there are `r ncol(coverData)` columns in the dataset. 
+
+
+```{r,results='hide'}
+
+#summaryTable to gather statistics. 
+summaryTable<-data.table(name=names(coverData))
+
+#May add description here? 
+summaryTable<-summaryTable[,dataType:= sapply(coverData,class)]  
+summaryTable<-summaryTable[,missing := t(coverData[,lapply(.SD,function(x) length(which(is.na(x))))]),]
+summaryTable<-summaryTable[,unique :=  t(coverData[,lapply(.SD,function(x) length(unique(x)))]),]
+
+integerCols<-summaryTable[dataType=="integer",name]
+categoricalCols<-summaryTable[dataType!="integer",name]
+
+tempCoverData<-coverData[,integerCols,with=FALSE]
+
+intSummary<-data.table(name=names(tempCoverData))
+
+measuredIn<-c("meters","azimuth","degrees","meters","meters","meters","meters","0-255","0-255","0-255")
+intSummary<-intSummary[,quantity := measuredIn]
+
+intSummary<-intSummary[,min :=  t(tempCoverData[,lapply(.SD,function(x) min(x))]),]
+intSummary<-intSummary[,max :=  t(tempCoverData[,lapply(.SD,function(x) max(x))]),]
+intSummary<-intSummary[,mean :=  t(tempCoverData[,lapply(.SD,function(x) round(mean(x),2))]),]
+intSummary<-intSummary[,std :=  t(tempCoverData[,lapply(.SD,function(x) round(sd(x),2))]),]
+
+summaryTable<-merge(summaryTable,intSummary,by="name",all=TRUE,sort=FALSE)
+#summaryTable[is.na(summaryTable)] <- " "
+```
+
+```{r,results='hide'}
+mytable<-data.frame(summaryTable)
+tab_nums("sumTab","Summary of CoverTye Dataset Featuers")
+```
+
+A summary of the `r ncol(coverData)` is presented in `r citetab("sumTab")`. 
+
+```{r,results='asis'}
+pandoc.table(mytable,caption=tab_nums("sumTab"),justify=c("left"),missing="")
+```
+
+XXXXFix table if have time?XXXX
+
+# Data Exploration
+
+The **covtype.info** file includes refences to a number of papers where predictive models were built with **coverType** as the target variable. 
+
+
+
+```{r,results='hide'}
+#tempTable using dplyr
+coverType.cnt = coverData %>% 
+  group_by(coverType) %>% 
+  summarise(count=n()) %>% 
+  mutate(pct=count/sum(count)) 
+
+plot<-ggplot(coverType.cnt, aes(x=coverType, y=count)) +
+  geom_bar(stat="identity") +
+  scale_y_continuous(labels=comma) +
+  geom_text(data=coverType.cnt, aes(label=count,y=count+30000),size=3) +
+  geom_text(data=coverType.cnt, aes(label=paste0(round(pct*100,1),"%"),y=count+10000),size=3) +
+  theme_adMobile()
+
+fig_nums("countCT","Distribution of coverType")
+```
+
+*coverType* is not evenly distributed. Two classes *(SpruceFir, LodgepolePine)* comprimise 85% of all rows. `r citefig("countCT")` displays a bar graphy of *coverType*.
+
+```{r figure1,echo=FALSE}
+plot+ggtitle(eval(fig_nums("countCT")))
+```
+
+## Numerical Data Exploration
+
+Density Plots
+
+```{r,results='hide'}
+featuresToPlot<-c("Elevation","Aspect","Slope","HD.Hydro","VD.Hydro","HD.Road","HD.Fire","HS.9am","HS.noon","HS.3pm")
+p=list()
+
+for(i in 1:length(featuresToPlot)){
+  p[[i]] <- ggplot(coverData, aes_string(x=featuresToPlot[i])) + 
+              geom_density() + 
+              theme_adMobile() + 
+              theme(axis.title.y=element_blank())
+  }
+fig_nums("denseNumeric","Density Plot of Numeric Data")
+```
+
+```{r,figure2,echo=FALSE}
+do.call(grid.arrange,c(p,top=eval(fig_nums("denseNumeric"))))
+```
+
+Boxplots
+
+
+```{r,results='hide'}
+featuresToPlot<-c("Elevation","Aspect","Slope","HD.Hydro","VD.Hydro","HD.Road","HD.Fire","HS.9am","HS.noon","HS.3pm")
+p=list()
+for(i in 1:length(featuresToPlot)){
+  p[[i]] <- ggplot(coverData, aes_string(y=featuresToPlot[i],x="coverType")) + 
+              geom_boxplot(outlier.shape = NA) + 
+              theme_adMobile() +
+              theme(axis.text.x=element_blank(),axis.title.x=element_blank())
+    
+  }
+fig_nums("boxNumeric","Boxplot of Numeric Data - coverType")
+```
+
+```{r,figure3,echo=FALSE}
+do.call(grid.arrange,c(p,top=eval(fig_nums("boxNumeric"))))
+```
+
+Correlation Matrix
+
+
+```{r,results='hide'}
+plot<-ggcorr(coverData[,1:10,with=FALSE], label = TRUE, label_size = 3, label_round = 2, label_alpha = TRUE, hjust = 00.75, size = 3,layout.exp = 1)
+fig_nums("corrTen","Correlation Matrix of 10 Numerical Features")
+```
+
+```{r figure4,echo=FALSE}
+plot+ggtitle(eval(fig_nums("corrTen")))
+```
+
+
+ScatterPlots
+
+```{r,results='hide'}
+corrFeature1<-c("HS.9am","HD.Fire","HD.Hydro","Slope","Aspect","Aspect")
+corrFeature2<-c("HS.noon","HS.noon","VD.Hydro","HS.9am","HD.Fire","HS.noon")
+
+scatterTemp<-sample_n(coverData,10000)
+
+p=list()
+for(i in 1:length(corrFeature1)){
+  p[[i]] <- ggplot(scatterTemp, aes_string(x=corrFeature1[i],y=corrFeature2[i])) +
+              geom_point(alpha=1/10) +
+              theme_adMobile()  
+  }
+fig_nums("scatterPlot6","Scatterplot of 6 Correlated Features")
+```
+
+
+```{r,figure5,echo=FALSE}
+do.call(grid.arrange,c(p,top=eval(fig_nums("scatterPlot6"))))
+```
+
+
+
+
+
+
+
+## Categorical Data Exploration
+
+```{r,results="hide"}
+
+#Create four seperate plots and arrange
+categoricalCols<-c("wildernessArea","soilType","climaticZone","geologicZone")
+
+#Create row counts using dplyr
+categoryCount <- coverData %>%group_by(wildernessArea) %>% summarise(count=n())
+p1 <- ggplot(categoryCount, aes(x=reorder(wildernessArea, -count), y=count)) + 
+        geom_bar(stat="identity") +
+        xlab("wildernesArea") +
+        scale_y_continuous(labels=comma) +
+         theme_adMobile() + 
+         theme(axis.title.y=element_blank())
+
+categoryCount <- coverData %>%group_by(soilType) %>% summarise(count=n())
+p2 <- ggplot(categoryCount, aes(x=reorder(soilType, -count), y=count)) + 
+        geom_bar(stat="identity") +
+        xlab("soilType") +
+        scale_y_continuous(labels=comma) +
+        theme_adMobile() +
+         theme(axis.text.x=element_text(size=6),axis.title.y=element_blank()) 
+
+categoryCount <- coverData %>%group_by(climaticZone) %>% summarise(count=n())
+p3 <- ggplot(categoryCount, aes(x=reorder(climaticZone, -count), y=count)) + 
+        geom_bar(stat="identity") +
+        xlab("climaticZone") +
+        scale_y_continuous(labels=comma) +
+        theme_adMobile() +
+        theme(axis.title.y=element_blank())
+
+#Create row counts using dplyr
+categoryCount <- coverData %>%group_by(geologicZone) %>% summarise(count=n())
+p4 <- ggplot(categoryCount, aes(x=reorder(geologicZone, -count), y=count)) + 
+        geom_bar(stat="identity") +
+        xlab("geologicZone") +
+        scale_y_continuous(labels=comma) +
+        theme_adMobile() + 
+        theme(axis.title.y=element_blank())
+
+fig_nums("category4","Row Counts of Categorioal Features")
+```
+
+
+```{r,figure6,echo=FALSE}
+grid.arrange(p1,p2,p3,p4,ncol=2,top=eval(fig_nums("category4")))
+```
+
+```{r,results='hide',eval=FALSE}
+#Calculate some feature importance. Note save to .csv to save time. rf
+
+require('FSelector')
+
+#Calculate chi-square feature importane, convert to sorted data.table
+chiSquare <- chi.squared(coverType~. ,coverData) #discrete target
+chiSquare$features1 <- row.names(chiSquare)
+colnames(chiSquare)[1] <- "chi.square"
+chiSquare$chi.square <- round(chiSquare$chi.square,3)
+chiSquare <- chiSquare[with(chiSquare, order(-chi.square)), ]
+
+
+require('caret')
+#Use a sample of the data for the rf calculation as it takes long time. 
+sampleIndex <- createDataPartition(coverData$coverType, p = .1,list = FALSE,times = 1)
+rf<- random.forest.importance(coverType~. ,coverData[ sampleIndex,], importance.type = 1) #1=mean decrease in accuracy, discrete target
+
+rf$features2 <- row.names(rf)
+colnames(rf)[1] <- "random.forest"
+rf$random.forest<-round(rf$random.forest/100,3)
+rf <- rf[with(rf, order(-random.forest)), ] 
+
+rfcopy<-rf
+chicopy<-chiSquare
+
+#from dplyr
+twoFI<-bind_cols(chiSquare,rf)
+colOrder<-c("features1","chi.square","features2","random.forest")  
+setcolorder(twoFI, colOrder)
+write.csv(twoFI, file = "featureImportance_coverData.csv",row.names=FALSE)
+
+
+
+#Maybe save to .csv to save time in future
+
+```
+
+```{r,results='hide'}
+mytable<-read.csv(file="featureImportance_coverData.csv",header=TRUE)
+tab_nums("featureImportTab","Feature Importance (chi,randomForest) of CoverTye Dataset Featuers")
+```
+
+FEATURE IMPORTANCE EXPLAIN
+
+```{r,results='asis'}
+pandoc.table(mytable,caption=tab_nums("featureImportTab"),justify=c("left"),missing="")
+```
+
+```{r,results='hide'}
+#theFile="/Users/briancarter1/Desktop/OneDrive/PublicData/AM/v2/covtype15.csv"
+#write.csv(coverData,file=theFile,row.names=FALSE)
+```
+
+
+# Summary
+
+# Research Questions of Interest
+
+

@@ -1,0 +1,15 @@
+"features1","chi.square","features2","random.forest"
+"Elevation",0.477,"Elevation",1.108
+"soilType",0.468,"HS.3pm",0.852
+"wildernessArea",0.443,"HD.Road",0.817
+"climaticZone",0.398,"HD.Hydro",0.774
+"geologicZone",0.175,"VD.Hydro",0.751
+"HD.Road",0.169,"HS.noon",0.737
+"HS.3pm",0.153,"HS.9am",0.729
+"Slope",0.125,"HD.Fire",0.714
+"HD.Fire",0.122,"Aspect",0.643
+"HS.noon",0.098,"wildernessArea",0.64
+"HD.Hydro",0.097,"Slope",0.598
+"HS.9am",0.096,"climaticZone",0.497
+"VD.Hydro",0.081,"geologicZone",0.419
+"Aspect",0.08,"soilType",0.047
