@@ -1,26 +1,22 @@
 ---
-title: "Adaptive Mobile: coverType Data Set - Exploratory Analysis "
+title: "coverType Data Set - Exploratory Analysis "
 author: "Brian Carter"
 date: "24 March, 2015"
 output: html_document
 ---
 
+<center>![title](../img/adaptlogo.png)</center>
+
+
 ```{r setup, eval=TRUE,echo=FALSE}
 
-setwd("C:\\Users\\IBM_ADMIN\\Desktop\\github\\adaptm\\DataExplore_with_R")
+setwd("C:\\Users\\IBM_ADMIN\\Desktop\\github\\coverData\\DataExplore_with_R")
 
-#Set some global options for r chunks. Want R chunk to evaluate, but not included for client facing document. 
-#knitr::opts_chunk$set(cache=TRUE,cache.lazy = TRUE,
-#												fig.height=4,fig.width=6,fig.align='center',fig.path='figure/',
-#											warning=FALSE,message=FALSE,error=FALSE,echo=FALSE
-#										)  ##background doesn't work
-#
-
+#Set some global options for r chunks.
 knitr::opts_chunk$set(cache=FALSE,cache.lazy = FALSE,
 											fig.path='figure/',
 											warning=FALSE,message=FALSE,error=FALSE,echo=FALSE,fig.width = 12, fig.align = 'center',fig.height=8
 										)  ##background doesn't work
-
 
 #Caching gives some funny results but it can result in faster loading times, when writing up the document. This is to do with the := assignment in data.table. Knitr doesn't recognise, therefore always use <-
 
@@ -106,7 +102,7 @@ This document presents an exploration of the data contained [Forest CoverType da
 
 ```{r readdata,cache=FALSE,results='hide'}
 ##File for the data file. 
-theFile="C:\\Users\\IBM_ADMIN\\Desktop\\OneDrive\\PublicData\\AM\\v1\\covtype.data"
+theFile="C:\\Users\\IBM_ADMIN\\Desktop\\github\\coverData\\data\\covtype.data"
 
 #Read in the file, try to use the syntax as applied here to keep track of what packages do what. 
 coverData<-data.table::fread(theFile,header=FALSE,na.strings=c(""))
@@ -115,8 +111,7 @@ coverData<-data.table::fread(theFile,header=FALSE,na.strings=c(""))
 
 ```{r colheads,cache=FALSE,results='hide',include=FALSE,cache=TRUE}
 #Add the column headers from created Excel file
-require(xlsx)
-theFile="C:\\Users\\IBM_ADMIN\\Desktop\\github\\adaptm\\metadata.xlsx"
+theFile="C:\\Users\\IBM_ADMIN\\Desktop\\github\\coverData\\metadata.xlsx"
 colNames<-data.table(read.xlsx(theFile, sheetName = "colNames"))
 coverData<-setnames(coverData, as.character(colNames[,dbName]) )
 ```
@@ -135,6 +130,7 @@ sum(coverData$testST)==nrow(coverData)  #True
 coverData<-coverData[,testWA := NULL]
 coverData<-coverData[,testST := NULL]
 ```
+<br><br><br><br><br><br>
 
 ## Data Summary 
 
@@ -142,11 +138,11 @@ coverData<-coverData[,testST := NULL]
 
 * columns 1-10 are quantiative data. 
 
-* columns 11-14 are a binary representation of **wilderness_Area**. *(4 columns are mutually exlusive)*
+* columns 11-14 are a binary representation of **wilderness_Area**. *(4 columns are mutually exlusive; ComanchePeak, CachePoudre, Neota, Rawah)*
 
 * columns 15-54 are a binary representation of **soilTye**. *(40 columns are  mutually exclusive)*
 
-* column **coverType* has 7 values *(target for prediction)*
+* column **coverType** has 7 values *(target for prediction)*
 
 ```{r reducebinary,cache=FALSE,results='hide',include=FALSE}
 #Reduce the two binary variable to original state with variables and encode the coverType variable with original labels. 
@@ -184,9 +180,17 @@ coverData <- coverData[ , colnames(coverData[,11:54,with=FALSE]):=NULL]
 ```
 
 
-The binary columns are mutually exclusive, in that, for each row only only of the four/forthy columns can contain a 1. For the purpose of exploratory analysis the two sets of binary columns **wildernessArea** and **soilType** are returned to their original form based on information in the *coyType.info* metadata file. 
+- The binary columns are mutually exclusive.
 
-In the *covtype.info* file there is extra meta data associated with the **soilType** column that is not in the original dataset. Each **soilType** has an unique associated 4-digit *ELU.Code*. The first digit of the *ELU.Code* represents its' **Climatic Zone** and the second digit its' *Geological Zone*. This extra information is introduced for exploratory analysis. 
+
+- For the purpose of exploratory analysis the binary columns **(wildernessArea, soilType)** are returned to their original form based on information in the **metadata** file. 
+
+
+- In the *covtype.info* file there is extra meta data associated with the **soilType** column that is not in the original dataset. 
+
+- Each **soilType** has an unique associated 4-digit *ELU.Code*. The first digit of the *ELU.Code* represents its' **Climatic Zone** and the second digit its' **Geological Zone**. 
+
+- This extra information is introduced for exploratory analysis. 
 
 
 ```{r targetlabel,cache=FALSE,results='hide',include=FALSE}
@@ -242,13 +246,20 @@ mytable<-data.frame(summaryTable)
 tab_nums("sumTab","Summary of CoverTye Dataset Featuers")
 ```
 
-* There are `r nrow(coverData)` rows across `r ncol(coverData)` columns. A summary is presented in `r citetab("sumTab")`. 
+<br><br>
+
+- There are `r nrow(coverData)` rows across `r ncol(coverData)` columns. 
+
+- A summary is presented in `r citetab("sumTab")`. 
+
+<br><br>
+
 
 ```{r,results='asis'}
 pandoc.table(mytable,caption=tab_nums("sumTab"),justify=c("left"),missing="",split.table=Inf)
 ```
 
-
+<br><br><br><br><br><br>
 
 # Class Distribution
 
@@ -271,11 +282,14 @@ plot<-ggplot(coverType.cnt, aes(x=coverType, y=count)) +
 fig_nums("countCT","Distribution of coverType")
 ```
 
-**coverType** is not evenly distributed. Two classes *(1.SpruceFir, 2.LodgepolePine)* comprimise 85% of all rows. `r citefig("countCT")` displays a bar graphy of **coverType**.
+**coverType** is not evenly distributed. Two classes *(1.SpruceFir, 2.LodgepolePine)* comprise 85% of all rows. `r citefig("countCT")` displays a bar graphy of **coverType**.
 
 ```{r figure1,echo=FALSE}
 plot+ggtitle(eval(fig_nums("countCT")))
 ```
+
+<br><br><br><br><br><br>
+
 
 # Numerical Data Exploration
 
@@ -288,7 +302,7 @@ plot+ggtitle(eval(fig_nums("countCT")))
 	
 - **Slope, HD.Hyrdo, HD.Road** have similar distribution
 
-- **HS** distributions display left skew, normal, left skew as expected. 
+- **Hillshade HS** distributions display left skew, normal, left skew as expected. 
 	
 - **VD.Hyrdo** is peaked around 0
 
@@ -326,7 +340,9 @@ for(i in 1:length(featuresToPlot)){
 fig_nums("boxNumeric","Boxplot of Numeric Data - coverType")
 ```
 
-The 10 numeric features are also examined in conjuction with the 7 levels of the **covType** varaible. 
+<br><br>
+
+The 10 numeric features are also examined in conjuction with the 7 levels of the **coverType** varaible. 
 
 - Outlier points not included *(1.5 inter-quartile range, distance between first and third quartiles)*
 
@@ -335,7 +351,8 @@ The 10 numeric features are also examined in conjuction with the 7 levels of the
 ```{r,figure3,echo=TRUE}
 do.call(grid.arrange,c(p,top=eval(fig_nums("boxNumeric"))))
 ```
- 
+<br><br><br><br><br><br>
+
 
 # Correlation and Scatterplot
 
@@ -376,19 +393,31 @@ for(i in 1:length(corrFeature1)){
 fig_nums("scatterPlot6","Scatterplot of 6 Correlated Features")
 ```
 
+<br><br>
+
 A scatter plot of each combination is presented in `r citefig('scatterPlot6')`
 
 ```{r,figure5,echo=FALSE}
 do.call(grid.arrange,c(p,top=eval(fig_nums("scatterPlot6"))))
 ```
 
-The scatter plot reveals some interesting pattenrs 
+The scatter plot reveals some interesting pairwise relationships.
 
-- The hillshade at noon and 9am creates an elipsoid
-- As the horizontal distance to a hydro increases, the variance in vertical distance increases. 
-- As slope increase a proportion othe data's hillshade at 9am decreases, probably due to the aspect.
-- *HD.Fire* has a sigmoid relationship with *Aspect*
-- Similarily *Aspect* and *HS.noon* have a more difined sigmoid relationship. 
+- A. The hillshade at noon and 9am creates an elipsoid
+
+
+- C. As the horizontal distance to a hydro increases, the variance in vertical distance increases. 
+
+
+- D. As slope increase a proportion othe data's hillshade at 9am decreases (probably due to the aspect.)
+
+
+- E. *HD.Fire* has a sigmoid relationship with *Aspect*
+
+
+- F. Similarily *Aspect* and *HS.noon* have a more difined sigmoid relationship. 
+
+<br><br><br><br><br><br>
 
 # Categorical Data Exploration
 
@@ -440,6 +469,9 @@ A count of the occurences of the four categorical variables, **wildernessArea, s
 grid.arrange(p1,p2,p3,p4,ncol=2,top=eval(fig_nums("category4")))
 ```
 
+<br><br><br><br><br><br>
+
+
 # Feature Importance
 
 ```{r,results='hide',eval=FALSE}
@@ -485,49 +517,63 @@ mytable<-read.csv(file="featureImportance_coverData.csv",header=TRUE)
 tab_nums("featureImportTab","Feature Importance (chi,randomForest) of CoverTye Dataset Featuers")
 ```
 
-The feature importance of the 15 columns, with respect to *coverType* variable is calculated and shown in `r citefig('featureImportTab'). As expected **Elevation** is the top feature. For the *chi-square* measure two of the introduced features, **climaticZone** and **geologicZone** also are in the top 5. *(This may be due to incorrect bucketing of the nuermcical attributes)*
+- The feature importance of the 15 columns, with respect to *coverType* variable is calculated.
 
-**Elevation** is also the top feature for *random.forest* feature importance. However after that,  numerical features are more favoured in contrast to the order for **chi.square** measures. 
+
+- As expected **Elevation** is the top feature. 
+
+
+- For the *chi-square* measure two of the introduced features, **climaticZone** and **geologicZone** also are in the top 5. *(This may be due to incorrect bucketing of the nuermcical attributes)*
+
+- **Elevation** is also the top feature for *random.forest* feature importance. 
+
+- However after that,  numerical features are more favoured in contrast to the order for **chi.square** measures. 
 
 ```{r,results='asis'}
 pandoc.table(mytable,caption=tab_nums("featureImportTab"),justify=c("left"),missing="")
 ```
 
 ```{r,results='hide'}
-#theFile="/Users/briancarter1/Desktop/OneDrive/PublicData/AM/v2/covtype15.csv"
+#theFile="C:\\Users\\IBM_ADMIN\\Desktop\\github\\coverData\\data\\covtype15.csv"
 #write.csv(coverData,file=theFile,row.names=FALSE)
 ```
 
-
+<br><br><br><br><br><br>
 
 # Points of Interest
 
-- The target variable is multilabelled
-	- Implications for the types of algorithms that can used
-	- Implications for the set up of multi-class representation
+* The target variable is multilabelled
+	* Implications for the types of algorithms that can used
+	* Implications for the set up of multi-class representation
 
+<br><br>
 
-- Variables are on different scales
-	- Rescale variables 
+* Variables are on different scales
+	* Rescale variables 
+
+<br><br>
+
+* Mixture of numerical and categorical variables
+	* Binary representations
+	* Clustering requires complex sequence
+	* Scale variables to keep 0/1 representation
+<br><br>
+
+* There is correlation amoung variables
+	* Represents opportunity to reduce the feature set through LDA or PCA? 
+	* May cause problems for interpretation if required. 
+	* Complex relationships present, requires to transform variables
+
+<br><br>
 	
+* No missing values
 
-- Mixture of numerical and categorical variables
-	- Binary representations
-	- Clustering requires complex sequence
-	- Scale variables to keep 0/1 representation
-	
-	
-	
-- There is correlation amoung variables
-	- Represents opportunity to reduce the feature set through LDA or PCA? 
-	- May cause problems for interpretation if required. 
-	- Complex relationships present, requires to transform variables
-	
-	
-- No outlier analysis done
+<br><br>
 
+* There are negative values
 
-- No missing values 
-	- There are negative values 
+<br><br>
 
+* No outlier analysis completed
 
+<br><br><br><br><br>
