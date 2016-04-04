@@ -1,0 +1,17 @@
+base
+data.table
+rJava
+xlsxjars
+xlsx
+plyr
+dplyr
+lubridate
+reshape2
+ggplot2
+ggthemes
+scales
+GGally
+gridExtra
+pander
+captioner
+pryr
